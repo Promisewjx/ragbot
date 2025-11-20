@@ -1,0 +1,44 @@
+# # HF 生态 & RAG
+# transformers==4.46.3
+# tokenizers>=0.20,<0.21
+# safetensors>=0.4.4
+# huggingface_hub>=0.24.0
+# accelerate==0.33.0
+# sentence-transformers==3.0.1
+# sentencepiece>=0.2.0
+
+# # 工具
+# numpy==1.26.4
+# pandas==2.2.2
+# scikit-learn==1.4.2
+# requests==2.32.3
+# python-dotenv==1.0.1
+# tiktoken==0.7.0
+# nltk==3.9.1
+
+# # 检索
+# faiss-cpu==1.8.0.post1     # 如想用 GPU 版：卸掉它后用 conda 装 faiss-gpu
+# whoosh==2.7.4
+
+# # API
+# fastapi==0.115.0
+# uvicorn[standard]==0.30.6
+# pydantic>=2.9,<3.0
+
+
+# Web API
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic>=2.9,<3.0
+python-dotenv==1.0.1
+
+# Embedding + 向量检索
+sentence-transformers==3.0.1
+faiss-cpu==1.8.0.post1
+
+# NLP工具
+nltk==3.9.1
+
+# 基础库
+requests==2.32.3
+numpy==1.26.4

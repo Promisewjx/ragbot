@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>RAG Chatbot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#0f172a; --panel:#111827; --muted:#94a3b8; --text:#e5e7eb; --accent:#22d3ee; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    header { padding:16px 20px; border-bottom:1px solid #1f2937; display:flex; align-items:center; gap:12px; }
+    header .dot { width:10px; height:10px; border-radius:50%; background:#10b981; }
+    header .title { font-weight:600; }
+    header .hint { color:var(--muted); font-size:13px; }
+    main { max-width:900px; margin:0 auto; padding:20px; display:flex; flex-direction:column; gap:14px; }
+    .chat { display:flex; flex-direction:column; gap:12px; }
+    .bubble { padding:12px 14px; border-radius:12px; max-width:100%; }
+    .user   { background:#1f2937; align-self:flex-end; }
+    .bot    { background:#111827; border:1px solid #1f2937; align-self:flex-start; white-space:pre-wrap; }
+    .refs { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:10px; margin-top:8px; }
+    .ref { background:#0b1220; border:1px solid #1f2937; border-radius:10px; padding:10px; }
+    .ref h4 { margin:0 0 6px 0; font-size:13px; color:#cbd5e1; }
+    .ref .meta { font-size:12px; color:var(--muted); margin-top:6px; display:flex; gap:10px; }
+    .inputBar { position:sticky; bottom:0; display:flex; gap:10px; padding:12px 0; background:linear-gradient(180deg, rgba(15,23,42,0.6), var(--bg) 30%); backdrop-filter: blur(6px); }
+    textarea { flex:1; resize:vertical; min-height:70px; max-height:200px; padding:10px 12px; border-radius:10px; border:1px solid #334155; background:#0b1220; color:var(--text); }
+    button { padding:0 18px; border:none; background:var(--accent); color:#0b1220; font-weight:600; border-radius:10px; cursor:pointer; }
+    button:disabled { opacity:.6; cursor:not-allowed; }
+    .small { color:var(--muted); font-size:12px; }
+    .sep { height:1px; background:#1f2937; margin:8px 0; }
+    a, a:visited { color:#7dd3fc; text-decoration:none; }
+    .model { color:var(--muted); font-size:12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="dot"></div>
+    <div class="title">RAG Chatbot</div>
+    <div class="hint">后端：<span id="backend" class="model">unknown</span></div>
+  </header>
+
+  <main>
+    <div id="chat" class="chat"></div>
+
+    <div class="inputBar">
+      <textarea id="q" placeholder="问点与你文档相关的问题吧…" autofocus></textarea>
+      <button id="send">发送</button>
+    </div>
+    <div class="small">提示：回答来自你的知识库片段，并附有引用卡片。</div>
+  </main>
+
+  <script>
+    // === 配置你的 API 地址（如部署到别处改这里） ===
+    const API_BASE = 'http://127.0.0.1:8000';
+
+    const chat = document.getElementById('chat');
+    const q = document.getElementById('q');
+    const send = document.getElementById('send');
+    const backend = document.getElementById('backend');
+
+    // 显示一条消息
+    function addBubble(text, who='bot', refs=[]) {
+      const div = document.createElement('div');
+      div.className = `bubble ${who}`;
+      div.textContent = text;
+      chat.appendChild(div);
+
+      if (who === 'bot' && refs && refs.length) {
+        const grid = document.createElement('div');
+        grid.className = 'refs';
+        refs.forEach(r => {
+          const card = document.createElement('div');
+          card.className = 'ref';
+          card.innerHTML = `
+            <h4>引用 [${r.id}]</h4>
+            <div class="small">${escapeHtml(r.path)} #${r.chunk_id}</div>
+            <div class="meta"><span>score: ${r.score?.toFixed?.(3) ?? '-'}</span></div>
+          `;
+          grid.appendChild(card);
+        });
+        chat.appendChild(grid);
+      }
+
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function escapeHtml(s){
+      return s?.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])) ?? '';
+    }
+
+    async function detectBackend() {
+      // 读取后端模式（简单方式：调用 /healthz + /docs 的可用性）
+      backend.textContent = '连接中…';
+      try {
+        const res = await fetch(`${API_BASE}/healthz`);
+        if (!res.ok) throw new Error('healthz failed');
+        // 简单显示模式（从环境变量侧不可直接读，这里给出提示文本）
+        backend.textContent = 'OK（/chat 可用）';
+      } catch (e) {
+        backend.textContent = '不可达';
+      }
+    }
+
+    async function ask(qtext) {
+      send.disabled = true;
+      addBubble(qtext, 'user');
+      try {
+        const res = await fetch(`${API_BASE}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: qtext })
+        });
+        if (!res.ok) {
+          const t = await res.text();
+          addBubble(`❌ 出错：${res.status} ${t.slice(0,200)}`, 'bot');
+        } else {
+          const data = await res.json();
+          addBubble(data.answer || '(空)', 'bot', data.references || []);
+        }
+      } catch (err) {
+        addBubble(`❌ 网络错误：${err.message}`, 'bot');
+      } finally {
+        send.disabled = false;
+      }
+    }
+
+    send.addEventListener('click', () => {
+      const text = q.value.trim();
+      if (!text) return;
+      q.value = '';
+      ask(text);
+    });
+
+    q.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        send.click();
+      }
+    });
+
+    // 初始欢迎
+    addBubble('你好！我已连接到你的 RAG 后端。输入问题开始对话～');
+    detectBackend();
+  </script>
+</body>
+</html>

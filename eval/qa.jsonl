@@ -1,0 +1,2 @@
+{"query": "AmgT 的核心贡献是什么？", "gold": {"type": "chunk", "items": [["data/raw/AmgT.md", 0], ["data/raw/AmgT.md", 1]]}}
+{"query": "BerryBees 文档的重点结论？", "gold": {"type": "path", "items": ["data/raw/BerryBees.md"]}}
