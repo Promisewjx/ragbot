@@ -13,7 +13,7 @@ from typing import List
 from rank_bm25 import BM25Okapi
 
 
-DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../data"))
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../data"))
 META_PATH = os.path.join(DATA_DIR, "index/meta.jsonl")
 BM25_OUT = os.path.join(DATA_DIR, "index/bm25.pkl")
 
